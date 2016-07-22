@@ -9,8 +9,8 @@ import argparse
 import csv
 import datetime
 from json import loads
-import quip
 import os
+import quip
 
 
 def get_environment():
