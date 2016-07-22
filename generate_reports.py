@@ -4,11 +4,42 @@ Script will pull data from quip.com and format locally in various formats.
 This is intended to automate/stre the weekly reporting requirements.
 """
 
-import quip
-import datetime
-import csv
-from json import loads
+
 import argparse
+import csv
+import datetime
+from json import loads
+import quip
+import os
+
+
+def get_environment():
+    """Get commandline args and/or parse config file or intended operation."""
+    parser = argparse.ArgumentParser(description='Convert a quip document '
+                                     'to misc report formats.')
+    parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('config_file', type=str, nargs='?',
+                        default='config_settings.json',
+                        help='The configuration file specs.')
+    parser.add_argument('--quip_api_key', type=str, action='store',
+                        help='API key for quip.')
+    parser.add_argument('--quip_doc_id', type=str, action='store',
+                        help='Quip document ID.')
+    args = parser.parse_args()
+    try:
+        with open(args.config_file) as f:
+            settings = loads(f.read())
+    except (IOError):
+        print('{} does not exsist.'.format(args.config_file))
+        exit()
+
+    # Default behaviour is to override if api or quip id explicit specified.
+    if args.quip_api_key is not None:
+        settings['quip_api_key'] = args.quip_api_key
+    if args.quip_doc_id is not None:
+        settings['quip_doc_id'] = args.quip_doc_id
+
+    return (settings['quip_api_key'], settings['quip_doc_id'], args.verbose)
 
 
 def quip_to_dict(access_token, thread_id):
@@ -177,22 +208,6 @@ def simple_display(projects):
     return s
 
 
-def save_files(projects):
-    """Save as properly formated text files."""
-    with open('output/markdown_export.txt', 'w')as f:
-        f.write(generate_markdown(projects))
-    with open('output/wiki_export.txt', 'w')as f:
-        f.write(generate_wiki_table(projects))
-
-
-def save_as_csv(projects):
-    """Save as a csv file."""
-    with open('output/mycsvfile.csv', 'wb') as f:
-        w = csv.DictWriter(f, projects[0].keys())
-        w.writeheader()
-        w.writerows(projects)
-
-
 def include_in_reports(project):
     """Helper function to return if a project is included in a report."""
     if project.get('overall_status') == 'Complete':
@@ -206,42 +221,28 @@ def include_in_reports(project):
     return True
 
 
-def get_environment():
-    """Get commandline args and/or parse config file or intended operation."""
-    parser = argparse.ArgumentParser(description='Convert a quip document '
-                                     'to misc report formats.')
-    parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('config_file', type=str, nargs='?',
-                        default='config_settings.json',
-                        help='The configuration file specs.')
-    parser.add_argument('--quip_api_key', type=str, action='store',
-                        help='API key for quip.')
-    parser.add_argument('--quip_doc_id', type=str, action='store',
-                        help='Quip document ID.')
-    args = parser.parse_args()
-    try:
-        with open(args.config_file) as f:
-            settings = loads(f.read())
-    except (IOError):
-        print('{} does not exsist.'.format(args.config_file))
-        exit()
-
-    # Default behaviour is to override if api or quip id explicit specified.
-    if args.quip_api_key is not None:
-        settings['quip_api_key'] = args.quip_api_key
-    if args.quip_doc_id is not None:
-        settings['quip_doc_id'] = args.quip_doc_id
-
-    return (settings['quip_api_key'], settings['quip_doc_id'], args.verbose)
+def save_files(projects, file_name=''):
+    """Save as properly formated text files."""
+    if not os.path.exists('output'):
+        os.makedirs('output')
+    with open('output/{}markdown_export.txt'.format(file_name), 'w')as f:
+        f.write(generate_markdown(projects))
+    with open('output/{}wiki_export.txt'.format(file_name), 'w')as f:
+        f.write(generate_wiki_table(projects))
+    with open('output/{}mycsvfile.csv'.format(file_name), 'wb') as f:
+        w = csv.DictWriter(f, projects[0].keys())
+        w.writeheader()
+        w.writerows(projects)
 
 
 if __name__ == '__main__':
     api_key, quip_doc_id, verbose = get_environment()
-    quip_data = quip_to_dict(access_token=api_key, thread_id=quip_doc_id)
-    filtered_data = filter(include_in_reports, quip_data)
+    projects = quip_to_dict(access_token=api_key, thread_id=quip_doc_id)
+    filtered_projects = filter(include_in_reports, projects)
 
-    print('Found {found} projects in the quip doc.\n{filtered} after filtering'
-          ' data.'.format(found=len(quip_data), filtered=len(filtered_data)))
+    print('{projects} projects in the quip doc.\n{filtered_projects} '
+          'after filtering.'.format(projects=len(projects),
+                                    filtered_projects=len(filtered_projects)))
 
     if verbose:
         print('-------------------\nWIKI FORMAT     \n-------------------\n\n'
@@ -249,10 +250,10 @@ if __name__ == '__main__':
               '-------------------\nMARKDOWN FORMAT \n-------------------\n\n'
               '{markdown}\n\n'
               '-------------------\nSIMPLE FORMAT   \n-------------------\n\n'
-              '{raw_data}').format(wiki=generate_wiki_table(filtered_data),
-                                   markdown=generate_markdown(filtered_data),
-                                   raw_data=simple_display(filtered_data))
+              '{simple}').format(wiki=generate_wiki_table(filtered_projects),
+                                 markdown=generate_markdown(filtered_projects),
+                                 simple=simple_display(filtered_projects))
 
-    save_files(filtered_data)
-    save_as_csv(quip_data)
+    save_files(filtered_projects, 'filered_')
+    save_files(projects, 'unfilered_')
     print('\n\nFiles saved to the output folder.\n')
