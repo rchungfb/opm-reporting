@@ -29,16 +29,19 @@ def get_environment():
     try:
         with open(args.config_file) as f:
             settings = loads(f.read())
+
     except (IOError):
         print('{} does not exsist.'.format(args.config_file))
         exit()
 
-    # Default behaviour is to override if api or quip id explicit specified.
+    # Default behaviour is to override if api or quip id explicitly passed.
     if args.quip_api_key is not None:
         settings['quip_api_key'] = args.quip_api_key
     if args.quip_doc_id is not None:
         settings['quip_doc_id'] = args.quip_doc_id
 
+    print('Trying:\n  doc:{}\n  key:{}\n'.format(settings['quip_doc_id'],
+                                                 settings['quip_api_key']))
     return (settings['quip_api_key'], settings['quip_doc_id'], args.verbose)
 
 
@@ -54,19 +57,19 @@ def quip_to_dict(access_token, thread_id):
         return name.replace(' ', '_').lower()
 
     client = quip.QuipClient(access_token=access_token)
-    document = client.get_thread(thread_id)
-    xml = client.parse_document_html(document['html'])
-    ElementTree = client.parse_spreadsheet_contents(xml)
-    rows = ElementTree['rows']
-    fieldname_map = {column_id: normalize_field(name['content'])
-                     for column_id, name in rows[0]['cells'].iteritems()}
+    print('Loading {}'.format(client.get_thread(thread_id)['thread']['title']))
+    spreadsheet_tree = client.get_first_spreadsheet(thread_id)
+    spreadsheet = client.parse_spreadsheet_contents(spreadsheet_tree)
+    rows = spreadsheet['rows']
     results = []
     for row in rows[1:]:
-        results.append({fieldname_map[c]: d['content'].replace(u'\u200b', '')
-                        for c, d in row['cells'].iteritems()})
+        results.append({c: d['content'] for c, d in row['cells'].iteritems()})
 
-    print('\nLoaded: {} from quip'.format(document['thread']['title']))
-    return results
+    column_names = {column_id: normalize_field(name['content'])
+                    for column_id, name in rows[0]['cells'].iteritems()}
+
+    return [dict(zip(map(lambda x: column_names[x], r.keys()), r.values()))
+            for r in results]
 
 
 def generate_wiki_table(projects):
