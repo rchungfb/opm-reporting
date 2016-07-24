@@ -8,7 +8,7 @@ This is intended to automate/stre the weekly reporting requirements.
 import argparse
 import csv
 import datetime
-from json import loads
+import json
 import os
 import quip
 
@@ -28,7 +28,7 @@ def get_environment():
     args = parser.parse_args()
     try:
         with open(args.config_file) as f:
-            settings = loads(f.read())
+            settings = json.loads(f.read())
 
     except (IOError):
         print('{} does not exsist.'.format(args.config_file))
