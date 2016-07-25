@@ -13,13 +13,29 @@ import os
 import quip
 
 
-def get_environment():
-    """Get commandline args and/or parse config file or intended operation."""
+def get_quip_environment(default_settings_file='config_settings.json'):
+    """Get commandline args and/or parse config file for intended operation.
+
+    usage: quip_puller.py [-h] [-v] [--quip_api_key QUIP_API_KEY]
+                          [--quip_doc_id QUIP_DOC_ID]
+                          [config_file]
+
+    Convert a quip document to misc report formats.
+
+    positional arguments:
+    config_file                   The configuration file specs.
+
+    optional arguments:
+    -h, --help                    show this help message and exit
+    -v, --verbose
+    --quip_api_key QUIP_API_KEY   API key for quip.
+    --quip_doc_id QUIP_DOC_ID     Quip document ID.
+    """
     parser = argparse.ArgumentParser(description='Convert a quip document '
                                      'to misc report formats.')
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('config_file', type=str, nargs='?',
-                        default='config_settings.json',
+                        default=default_settings_file,
                         help='The configuration file specs.')
     parser.add_argument('--quip_api_key', type=str, action='store',
                         help='API key for quip.')
@@ -29,11 +45,9 @@ def get_environment():
     try:
         with open(args.config_file) as f:
             settings = json.loads(f.read())
-
     except (IOError):
         print('{} does not exsist.'.format(args.config_file))
         exit()
-
     # Default behaviour is to override if api or quip id explicitly passed.
     if args.quip_api_key is not None:
         settings['quip_api_key'] = args.quip_api_key
@@ -45,7 +59,7 @@ def get_environment():
     return (settings['quip_api_key'], settings['quip_doc_id'], args.verbose)
 
 
-def quip_to_dict(access_token, thread_id):
+def dictReader(access_token, thread_id):
     """Import and parse a colaberative quip document.
 
     Specifically parse any spreadsheet and return a datastructure similar to
@@ -239,8 +253,8 @@ def save_files(projects, file_name=''):
 
 
 if __name__ == '__main__':
-    api_key, quip_doc_id, verbose = get_environment()
-    projects = quip_to_dict(access_token=api_key, thread_id=quip_doc_id)
+    api_key, doc_id, verbose = get_quip_environment('config_settings.json')
+    projects = dictReader(access_token=api_key, thread_id=doc_id)
     filtered_projects = filter(include_in_reports, projects)
 
     print('{projects} projects in the quip doc.\n{filtered_projects} '
