@@ -157,7 +157,7 @@ def generate_wiki_table(projects):
                      'deb': 'debottym',
                      'nhan': 'nhantrieu',
                      'siv': 'siv',
-                     'anusha': 'thickman',  # Placeholder until Unix name avail
+                     'anusha': 'aalishetty',
                      'ciaran': 'thickman',  # Placeholder until Unix name avail
                      'lulu': 'thickman',  # Placeholder until Unix name avail
                      'None': 'unknown'}
